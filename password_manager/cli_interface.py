@@ -136,6 +136,30 @@ class CLIInterface:
                 break
             else:
                 print("❌ Invalid option. Please try again.")
+
+    def get_multiline_input(self, allow_keep: bool = False, current_value: str = "") -> str:
+        """Get multi-line text input from user until 'END' is typed on a new line."""
+        lines = []
+        first_line = True
+        while True:
+            try:
+                line = input()
+                if line.strip() == "END":
+                    break
+                if first_line and not line:
+                    if allow_keep:
+                        return current_value
+                    else:
+                        break
+                first_line = False
+                lines.append(line)
+            except EOFError:
+                break
+        
+        result = "\n".join(lines).strip()
+        if allow_keep and not result and not lines:
+            return current_value
+        return result
     
     def add_password(self):
         """Add a new password entry"""
@@ -171,7 +195,8 @@ class CLIInterface:
                 return
         
         website = website_input
-        notes = input("Notes (optional): ").strip()
+        print("Notes (optional - multi-line supported. Type 'END' on a new line when finished):")
+        notes = self.get_multiline_input()
         
         entry = self.password_manager.add_entry(username, password, website, notes)
         print(f"✅ Password added successfully! (ID: {entry.id[:8]}...)")
@@ -256,46 +281,15 @@ class CLIInterface:
         print(f"Updated: {entry.updated_at.strftime('%Y-%m-%d %H:%M')}")
         
         if entry.notes:
-            print(f"Notes: {entry.notes}")
+            print("Notes:")
+            for line in entry.notes.splitlines():
+                print(f"  {line}")
         
         show_password = input("\nShow password? (y/N): ").lower() == 'y'
         if show_password:
             print(f"Password: {entry.password}")
         
         input("\nPress Enter to continue...")
-    
-    def search_passwords(self):
-        """Enhanced search for password entries"""
-        print("\n🔍 SEARCH PASSWORDS")
-        print("-" * 30)
-        print("💡 Tips:")
-        print("  • Use multiple words to narrow results (e.g., 'google work')")
-        print("  • Search works across username, website, and notes")
-        print("  • Results are sorted by relevance")
-        print()
-        
-        query = input("Enter search terms: ").strip()
-        if not query:
-            print("❌ Search term cannot be empty.")
-            return
-        
-        results = self.password_manager.search_entries(query)
-        
-        if not results:
-            print(f"❌ No passwords found matching '{query}'.")
-            
-            # Suggest similar websites
-            suggestions = self.password_manager.get_website_suggestions(query)
-            if suggestions:
-                print(f"💡 Did you mean one of these websites?")
-                for i, suggestion in enumerate(suggestions[:5], 1):
-                    print(f"   {i}. {suggestion}")
-            return
-        
-        print(f"\n📋 SEARCH RESULTS ({len(results)} found for '{query}')")
-        print("-" * 50)
-        
-            
     
     def search_passwords(self):
         """Enhanced search for password entries"""
@@ -469,7 +463,10 @@ class CLIInterface:
         new_username = input(f"Username [{entry.username}]: ").strip()
         new_password = getpass.getpass(f"Password [current hidden]: ")
         new_website = input(f"Website [{entry.website}]: ").strip()
-        new_notes = input(f"Notes [{entry.notes}]: ").strip()
+        
+        print(f"\nCurrent Notes:\n{entry.notes if entry.notes else '(None)'}")
+        print("\nNotes [Press Enter to keep current, or enter new notes. Type 'END' on a new line when finished]:")
+        new_notes = self.get_multiline_input(allow_keep=True, current_value=entry.notes)
         
         # Update only non-empty fields
         updates = {}
@@ -479,7 +476,7 @@ class CLIInterface:
             updates['password'] = new_password
         if new_website:
             updates['website'] = new_website
-        if new_notes:
+        if new_notes != entry.notes:
             updates['notes'] = new_notes
         
         if updates:
@@ -628,7 +625,8 @@ class CLIInterface:
                 username = input("Username/Email: ").strip()
                 if username:
                     website = input("Website (optional): ").strip()
-                    notes = input("Notes (optional): ").strip()
+                    print("Notes (optional - multi-line supported. Type 'END' on a new line when finished):")
+                    notes = self.get_multiline_input()
                     entry = self.password_manager.add_entry(username, password, website, notes)
                     print(f"✅ Password saved! (ID: {entry.id[:8]}...)")
         except Exception as e:
